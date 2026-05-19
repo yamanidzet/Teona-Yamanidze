@@ -21,6 +21,7 @@ import mimetypes
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+from typing import Optional
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -115,7 +116,7 @@ Answer naturally, as you would to a curious museum visitor.
 Be specific about nationality, origin, and cultural context if you know it.
 Do not add disclaimers about being an AI."""
 
-def query_claude_about_artist(artist_name: str, image_url: str | None = None) -> str:
+def query_claude_about_artist(artist_name: str, image_url: Optional[str] = None) -> str:
     """Ask Claude what it knows about this artist/work — returns the raw LLM response."""
     if not CLAUDE_AVAILABLE:
         return demo_llm_response(artist_name)

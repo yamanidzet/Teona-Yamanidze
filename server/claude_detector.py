@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 try:
     import anthropic
@@ -62,8 +63,8 @@ ARTIST_TRUTH = {
     },
 }
 
-def detect_misattribution(artist: str, image_url: str | None = None,
-                           artwork_title: str | None = None) -> dict:
+def detect_misattribution(artist: str, image_url: Optional[str] = None,
+                           artwork_title: Optional[str] = None) -> dict:
     """
     Query Claude about the artist, then assess misattribution.
     Returns a structured result with: llm_response, misattribution_detected,
