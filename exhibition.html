@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Exhibition Controller — Misattribution Machine</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a; color: #888;
+      font-family: monospace; font-size: 12px;
+      padding: 30px;
+    }
+    h1 { color: #ddd; font-size: 14px; letter-spacing: 4px;
+         text-transform: uppercase; margin-bottom: 4px; }
+    .subtitle { color: #444; font-size: 10px; letter-spacing: 3px;
+                text-transform: uppercase; margin-bottom: 40px; }
+
+    .grid-preview {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      max-width: 900px;
+      margin-bottom: 40px;
+    }
+    .screen-tile {
+      aspect-ratio: 16/9;
+      background: #111;
+      border: 1px solid #222;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: #444;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .screen-tile:hover { border-color: #5af; color: #5af; }
+    .screen-tile .num { font-size: 18px; font-weight: bold; color: #333; }
+    .screen-tile .type { position: absolute; bottom: 6px; right: 6px;
+                          font-size: 9px; color: #333; }
+
+    .controls {
+      display: flex; gap: 20px; flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .control-group { display: flex; flex-direction: column; gap: 8px; }
+    .control-group label { color: #555; font-size: 10px; letter-spacing: 2px;
+                            text-transform: uppercase; }
+    select, button {
+      background: #111; border: 1px solid #2a2a2a;
+      color: #888; font-family: monospace; font-size: 11px;
+      padding: 8px 14px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    select:hover, button:hover { border-color: #5af; color: #5af; }
+    button.primary { border-color: #444; color: #ccc; }
+    button.primary:hover { background: #5af; color: #000; border-color: #5af; }
+
+    .url-display {
+      background: #0d0d0d; border: 1px solid #1a1a1a;
+      padding: 16px; max-width: 900px;
+      margin-bottom: 40px;
+    }
+    .url-display h3 { color: #555; font-size: 10px; letter-spacing: 3px;
+                       text-transform: uppercase; margin-bottom: 12px; }
+    .url-list { display: flex; flex-direction: column; gap: 6px; }
+    .url-item { display: flex; align-items: center; gap: 12px; }
+    .url-item .badge {
+      background: #1a1a1a; color: #444; padding: 2px 8px;
+      font-size: 9px; min-width: 60px; text-align: center;
+    }
+    .url-item .url { color: #4af; font-size: 10px; }
+
+    .analysis {
+      max-width: 900px;
+    }
+    .analysis h2 { color: #ddd; font-size: 12px; letter-spacing: 3px;
+                    text-transform: uppercase; margin-bottom: 16px; }
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1px; background: #1a1a1a;
+      margin-bottom: 30px;
+    }
+    .stat-cell {
+      background: #0d0d0d; padding: 16px;
+    }
+    .stat-cell .num { font-size: 28px; color: #ddd; font-weight: bold; }
+    .stat-cell .label { color: #444; font-size: 9px; letter-spacing: 2px;
+                          text-transform: uppercase; margin-top: 4px; }
+    .stat-cell .sub { color: #333; font-size: 9px; margin-top: 4px; }
+
+    .artist-cards {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: #1a1a1a; margin-bottom: 30px;
+    }
+    .artist-card {
+      background: #0d0d0d; padding: 16px;
+      border-left: 3px solid #222;
+    }
+    .artist-card h3 { color: #ccc; font-size: 11px; margin-bottom: 8px; }
+    .artist-card .wrong { color: #c44; font-size: 10px; margin-bottom: 4px; }
+    .artist-card .correct { color: #4a8; font-size: 10px; }
+    .artist-card .count { color: #444; font-size: 9px; margin-top: 8px;
+                            letter-spacing: 1px; }
+
+    .phase-guide {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+      background: #1a1a1a;
+    }
+    .phase-cell { background: #0d0d0d; padding: 14px; }
+    .phase-cell .pnum { color: #5af; font-size: 20px; font-weight: bold; }
+    .phase-cell .pname { color: #888; font-size: 10px; letter-spacing: 2px;
+                           text-transform: uppercase; margin: 4px 0; }
+    .phase-cell .pdesc { color: #444; font-size: 9px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<h1>Misattribution Machine</h1>
+<p class="subtitle">Exhibition Controller — 12-Screen LED Installation</p>
+
+<!-- Visual grid of 12 screens -->
+<div class="grid-preview" id="screen-grid"></div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="control-group">
+    <label>Grid layout</label>
+    <select id="layout" onchange="updateLayout()">
+      <option value="4x3" selected>4 columns × 3 rows (landscape)</option>
+      <option value="3x4">3 columns × 4 rows</option>
+      <option value="6x2">6 columns × 2 rows (ultra-wide)</option>
+      <option value="12x1">12 columns × 1 row (linear)</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Artist sequence</label>
+    <select id="artist">
+      <option value="Malevich">Malevich → Exter → Kakabadze → Pagava → Parajanov</option>
+      <option value="Parajanov">Parajanov (bibliographic focus)</option>
+      <option value="Exter">Exter (Ukrainian focus)</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Screen role</label>
+    <button class="primary" onclick="openAllScreens()">Open all 12 screens</button>
+  </div>
+  <div class="control-group">
+    <label>Visitor kiosk</label>
+    <button onclick="openKiosk()">Open kiosk panel</button>
+  </div>
+</div>
+
+<!-- URL list for each screen -->
+<div class="url-display">
+  <h3>Screen URLs — open each in a browser window on its display device</h3>
+  <div class="url-list" id="url-list"></div>
+</div>
+
+<!-- Dataset analysis -->
+<div class="analysis">
+  <h2>Dataset Analysis Summary</h2>
+
+  <div class="stat-grid">
+    <div class="stat-cell">
+      <div class="num">659</div>
+      <div class="label">Total records analysed</div>
+      <div class="sub">Across both datasets</div>
+    </div>
+    <div class="stat-cell">
+      <div class="num">305</div>
+      <div class="label">Parajanov bibliographic records</div>
+      <div class="sub">Trove, WorldCat, ACMI, NGV, QAGOMA</div>
+    </div>
+    <div class="stat-cell">
+      <div class="num">354</div>
+      <div class="label">Artwork catalogue records</div>
+      <div class="sub">MoMA, NGA, NGV, Pompidou, Yale, AGNSW…</div>
+    </div>
+    <div class="stat-cell">
+      <div class="num">~94%</div>
+      <div class="label">Records with misattribution</div>
+      <div class="sub">Wrong label, omission, or spelling error</div>
+    </div>
+    <div class="stat-cell">
+      <div class="num">6</div>
+      <div class="label">Misattribution types</div>
+      <div class="sub">Wrong label · Omission · Spelling · Structural · Propagation · LLM replication</div>
+    </div>
+    <div class="stat-cell">
+      <div class="num">4</div>
+      <div class="label">Downstream AI systems</div>
+      <div class="sub">GPT · Claude · LLAMA · Google Knowledge Graph</div>
+    </div>
+  </div>
+
+  <div class="artist-cards">
+    <div class="artist-card" style="border-left-color:#c44">
+      <h3>Kazimir Malevich (272 records)</h3>
+      <div class="wrong">✗ Russian / Soviet</div>
+      <div class="correct">✓ Ukrainian-born (Kyiv); Polish heritage</div>
+      <div class="count">Birth year wrong in 200+ NGA records (1878 → 1879)</div>
+    </div>
+    <div class="artist-card" style="border-left-color:#c74">
+      <h3>Alexandra Exter (44 records)</h3>
+      <div class="wrong">✗ Russian (often embedded in title)</div>
+      <div class="correct">✓ Ukrainian-born (Kyiv); Kyiv School of Art</div>
+      <div class="count">MoMA frames her in "Russian Avant-Garde" exhibitions</div>
+    </div>
+    <div class="artist-card" style="border-left-color:#a44">
+      <h3>Vera Pagava (19 records)</h3>
+      <div class="wrong">✗ Empire Russe (birthplace erasure)</div>
+      <div class="correct">✓ Georgian-born (Tbilisi); émigré to Paris</div>
+      <div class="count">All 19 Pompidou records use imperial framing</div>
+    </div>
+    <div class="artist-card" style="border-left-color:#a34">
+      <h3>David Kakabadze (19 records)</h3>
+      <div class="wrong">✗ Société Anonyme "Russian avant-garde" framing</div>
+      <div class="correct">✓ Georgian-born (Kutaisi/Tbilisi)</div>
+      <div class="count">Field-level correct but structural misattribution via canon</div>
+    </div>
+    <div class="artist-card" style="border-left-color:#c55">
+      <h3>Sergei Parajanov (305 records)</h3>
+      <div class="wrong">✗ Soviet (majority) / Unspecified (omission)</div>
+      <div class="correct">✓ Soviet-Armenian; Georgian-born Armenian</div>
+      <div class="count">Only 1 of 305 records (NGV/COBISS) uses Armenian</div>
+    </div>
+    <div class="artist-card" style="border-left-color:#333">
+      <h3>Propagation chain</h3>
+      <div class="wrong">Library of Congress → WorldCat → Trove</div>
+      <div class="correct">→ Museum catalogues → LLMs → Web</div>
+      <div class="count">Absence of nationality qualifier propagates downstream</div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:30px; margin-bottom:16px;">Visual Narrative — 8 Phases (no text on display)</h2>
+  <div class="phase-guide">
+    <div class="phase-cell">
+      <div class="pnum">01</div>
+      <div class="pname">Pristine</div>
+      <div class="pdesc">Artwork appears whole and luminous — the work as created, before archiving</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">02</div>
+      <div class="pname">Label Applied</div>
+      <div class="pdesc">A stamp descends — wrong-identity colours, geometric bars. The wrong label is applied.</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">03</div>
+      <div class="pname">Corruption</div>
+      <div class="pdesc">The image fractures, pixelates, shifts palette. Glitch bars. Shards break away.</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">04</div>
+      <div class="pname">Propagation</div>
+      <div class="pdesc">Archive nodes activate across all screens. Error flows downstream — library → museum → LLM.</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">05</div>
+      <div class="pname">Machine Gaze</div>
+      <div class="pdesc">Three AI systems scan the corrupted image — scan bars in blue/green/amber. All confirm the wrong answer.</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">06</div>
+      <div class="pname">Intervention</div>
+      <div class="pdesc">A beam of light cuts through. The researcher's correction. Correct-identity colours emerge.</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">07</div>
+      <div class="pname">Truth</div>
+      <div class="pdesc">Image heals. Flag colours flood all 12 screens. Identity revealed — full, complex, true.</div>
+    </div>
+    <div class="phase-cell">
+      <div class="pnum">08</div>
+      <div class="pname">Fade</div>
+      <div class="pdesc">Cycle resets. Next artist begins. The loop continues — as the error does, until corrected.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let cols = 4, rows = 3;
+  const BASE_URL = window.location.origin + '/index.html';
+
+  function updateLayout() {
+    const [c, r] = document.getElementById('layout').value.split('x').map(Number);
+    cols = c; rows = r;
+    buildGrid();
+    buildURLList();
+  }
+
+  function buildGrid() {
+    const grid = document.getElementById('screen-grid');
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    grid.innerHTML = '';
+    for (let i = 1; i <= cols * rows; i++) {
+      const div = document.createElement('div');
+      div.className = 'screen-tile';
+      div.innerHTML = `<span class="num">${i}</span><span class="type">SCR</span>`;
+      div.onclick = () => openScreen(i);
+      grid.appendChild(div);
+    }
+  }
+
+  function buildURLList() {
+    const list = document.getElementById('url-list');
+    list.innerHTML = '';
+    const artist = document.getElementById('artist').value;
+    for (let i = 1; i <= cols * rows; i++) {
+      const url = `${BASE_URL}?screen=${i}&cols=${cols}&rows=${rows}&artist=${artist}`;
+      const div = document.createElement('div');
+      div.className = 'url-item';
+      div.innerHTML = `
+        <span class="badge">Screen ${i}</span>
+        <span class="url">${url}</span>
+      `;
+      list.appendChild(div);
+    }
+    // Kiosk URL
+    const kioskUrl = `${BASE_URL}?screen=7&cols=${cols}&rows=${rows}&artist=${artist}&kiosk=1`;
+    const kioskDiv = document.createElement('div');
+    kioskDiv.className = 'url-item';
+    kioskDiv.innerHTML = `<span class="badge" style="color:#5af">Kiosk</span>
+      <span class="url" style="color:#5af">${kioskUrl}</span>`;
+    list.appendChild(kioskDiv);
+  }
+
+  function openScreen(id) {
+    const artist = document.getElementById('artist').value;
+    const url = `${BASE_URL}?screen=${id}&cols=${cols}&rows=${rows}&artist=${artist}`;
+    window.open(url, `screen_${id}`, 'fullscreen=yes');
+  }
+
+  function openAllScreens() {
+    for (let i = 1; i <= cols * rows; i++) openScreen(i);
+  }
+
+  function openKiosk() {
+    const artist = document.getElementById('artist').value;
+    const url = `${BASE_URL}?screen=1&cols=1&rows=1&artist=${artist}&kiosk=1`;
+    window.open(url, 'kiosk', 'width=1080,height=1920');
+  }
+
+  // Init
+  buildGrid();
+  buildURLList();
+</script>
+</body>
+</html>

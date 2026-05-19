@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Misattribution Machine — Exhibition Display</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      overflow: hidden;
+      cursor: none;
+    }
+    canvas { display: block; }
+
+    /* Loading screen */
+    #loader {
+      position: fixed; inset: 0;
+      background: #000;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100;
+      transition: opacity 1.2s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    #loader svg { width: 80px; height: 80px; margin-bottom: 24px; }
+    #loader p {
+      color: #555; font-family: monospace; font-size: 12px;
+      letter-spacing: 3px; text-transform: uppercase;
+    }
+
+    /* Kiosk query panel (visitor interaction) */
+    #kiosk-panel {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 200px;
+      background: rgba(0,0,0,0.92);
+      border-top: 1px solid #222;
+      padding: 20px 40px;
+      font-family: monospace;
+      color: #666;
+      z-index: 50;
+    }
+    #kiosk-panel.visible { display: flex; flex-direction: column; gap: 12px; }
+    #kiosk-panel h3 { color: #888; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; }
+    #kiosk-panel .response-area {
+      flex: 1; overflow-y: auto;
+      font-size: 13px; line-height: 1.6; color: #aaa;
+    }
+    #kiosk-panel .truth-row {
+      display: flex; gap: 20px; font-size: 11px;
+    }
+    #kiosk-panel .llm-col { flex: 1; }
+    #kiosk-panel .llm-col h4 { color: #5af; margin-bottom: 6px; letter-spacing: 2px; font-size: 10px; }
+    #kiosk-panel .truth-col { flex: 1; }
+    #kiosk-panel .truth-col h4 { color: #fa5; margin-bottom: 6px; letter-spacing: 2px; font-size: 10px; }
+    #query-btn {
+      position: fixed; bottom: 220px; left: 50%; transform: translateX(-50%);
+      background: transparent; border: 1px solid #333;
+      color: #555; font-family: monospace; font-size: 11px;
+      letter-spacing: 3px; text-transform: uppercase;
+      padding: 10px 24px; cursor: pointer;
+      transition: all 0.3s ease;
+      display: none;
+    }
+    #query-btn:hover { border-color: #5af; color: #5af; }
+    #query-btn.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loader">
+  <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="40" cy="40" r="35" stroke="#1a1a1a" stroke-width="2"/>
+    <circle cx="40" cy="40" r="35" stroke="#333" stroke-width="1.5"
+      stroke-dasharray="50 170" stroke-linecap="round">
+      <animateTransform attributeName="transform" type="rotate"
+        from="0 40 40" to="360 40 40" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <rect x="28" y="28" width="10" height="10" fill="#333"/>
+    <rect x="42" y="34" width="14" height="6"  fill="#333"/>
+    <rect x="28" y="42" width="28" height="5"  fill="#222"/>
+  </svg>
+  <p>Initialising archive</p>
+</div>
+
+<!-- Visitor kiosk query button (shown only in kiosk mode) -->
+<button id="query-btn" onclick="triggerLLMQuery()">Ask the Archive</button>
+
+<!-- LLM response panel -->
+<div id="kiosk-panel">
+  <h3>What the machine knows</h3>
+  <div class="truth-row">
+    <div class="llm-col">
+      <h4>AI response (unmodified)</h4>
+      <div class="response-area" id="llm-response">Querying…</div>
+    </div>
+    <div class="truth-col">
+      <h4>Record of truth</h4>
+      <div class="response-area" id="truth-response"></div>
+    </div>
+  </div>
+</div>
+
+<!-- p5.js + sketch -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/sketch.js"></script>
+
+<script>
+  // Hide loader after p5 canvas is ready
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      document.getElementById('loader').classList.add('hidden');
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('kiosk') === '1') {
+        document.getElementById('query-btn').classList.add('visible');
+      }
+    }, 1800);
+  });
+
+  // Visitor kiosk: send artwork to backend, show LLM vs. truth
+  async function triggerLLMQuery() {
+    const panel = document.getElementById('kiosk-panel');
+    panel.classList.add('visible');
+    document.getElementById('llm-response').textContent = 'Querying AI…';
+    document.getElementById('truth-response').textContent = '';
+
+    try {
+      const artist = new URLSearchParams(window.location.search).get('artist') || 'Malevich';
+      const res = await fetch(`/api/query?artist=${encodeURIComponent(artist)}`);
+      const data = await res.json();
+
+      // Typewriter reveal of LLM response
+      typewrite('llm-response', data.llm_response || '(no response)', 20);
+      typewrite('truth-response', data.truth || '', 15);
+    } catch (e) {
+      document.getElementById('llm-response').textContent = 'Server offline — demo mode active.';
+      document.getElementById('truth-response').textContent = 'Records available in the dataset.';
+    }
+  }
+
+  function typewrite(id, text, delay) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    let i = 0;
+    const timer = setInterval(() => {
+      if (i < text.length) {
+        el.textContent += text[i++];
+      } else {
+        clearInterval(timer);
+      }
+    }, delay);
+  }
+
+  // Keyboard shortcuts (curator controls)
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.getElementById('kiosk-panel').classList.remove('visible');
+    }
+    if (e.key === 'q' || e.key === 'Q') triggerLLMQuery();
+  });
+</script>
+</body>
+</html>
