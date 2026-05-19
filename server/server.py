@@ -5,10 +5,13 @@ Serves the exhibition frontend and provides LLM misattribution detection.
 Routes:
   GET  /               → exhibition.html
   GET  /index.html     → main display
-  GET  /api/query      → LLM vs. Record of Truth comparison
-  GET  /api/artworks   → full artwork dataset
+  GET  /api/query      → LLM vs. Record of Truth (single model)
+  GET  /api/compare    → all three LLMs compared side-by-side
+  GET  /api/artworks   → full artwork dataset (filterable by artist)
   GET  /api/detect     → run Claude misattribution detection on an image URL
-  POST /api/image      → analyse a local image file
+  GET  /api/images     → image manifest and status
+  GET  /api/stats      → dataset summary statistics
+  POST /api/image      → analyse a local image file upload
 """
 
 import json
@@ -18,6 +21,11 @@ import mimetypes
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+
+from multi_llm import compare_all_llms, query_claude, assess, ARTIST_TRUTH
+from image_pipeline import build_image_manifest, get_image_for_llm, show_status
 
 try:
     import anthropic
@@ -225,15 +233,35 @@ class ExhibitionHandler(SimpleHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         if path == '/api/query':
-            artist = params.get('artist', ['Malevich'])[0]
+            artist    = params.get('artist', ['Malevich'])[0]
             image_url = params.get('image_url', [None])[0]
+            # Try to auto-find image if not provided
+            if not image_url:
+                art_id = params.get('id', [None])[0]
+                if art_id:
+                    ref = get_image_for_llm(art_id)
+                    if ref and ref['type'] == 'url':
+                        image_url = ref['value']
             self._json_response({
                 'artist':        artist,
                 'llm_response':  query_claude_about_artist(artist, image_url),
                 'truth':         build_truth_response(artist),
                 'flawed_label':  ARTIST_IDENTITY.get(artist, {}).get('flawed', ''),
                 'correct_label': ARTIST_IDENTITY.get(artist, {}).get('correct', ''),
+                'image_used':    image_url,
             })
+
+        elif path == '/api/compare':
+            # Multi-LLM comparison — the core of Marc's suggestion
+            artist    = params.get('artist', ['Malevich'])[0]
+            image_url = params.get('image_url', [None])[0]
+            art_id    = params.get('id', [None])[0]
+            if not image_url and art_id:
+                ref = get_image_for_llm(art_id)
+                if ref and ref['type'] == 'url':
+                    image_url = ref['value']
+            result = compare_all_llms(artist, image_url)
+            self._json_response(result)
 
         elif path == '/api/artworks':
             artist = params.get('artist', [None])[0]
@@ -251,7 +279,6 @@ class ExhibitionHandler(SimpleHTTPRequestHandler):
             llm_text = query_claude_about_artist(artist, image_url)
             truth    = build_truth_response(artist)
             id_data  = ARTIST_IDENTITY.get(artist, {})
-            # Simple heuristic: if the LLM response contains the correct nationality, no misattribution detected
             correct_keywords = [w.lower() for w in (id_data.get('correct','') + ' ' + id_data.get('correct_name','')).split() if len(w) > 4]
             detected = not any(kw in llm_text.lower() for kw in correct_keywords[:5])
             self._json_response({
@@ -259,6 +286,32 @@ class ExhibitionHandler(SimpleHTTPRequestHandler):
                 'llm_response': llm_text,
                 'truth': truth,
                 'confidence': 0.92 if detected else 0.31,
+            })
+
+        elif path == '/api/images':
+            # Image manifest — shows which artworks have images ready
+            artist = params.get('artist', [None])[0]
+            manifest = build_image_manifest()
+            if artist:
+                manifest = [m for m in manifest if m.get('artist','').lower() == artist.lower()]
+            ready = sum(1 for m in manifest if m['ready_for_llm'])
+            self._json_response({
+                'total': len(manifest),
+                'ready': ready,
+                'manifest': manifest[:60],
+            })
+
+        elif path == '/api/sync':
+            # Phase clock for cross-machine screen synchronisation
+            # Screens call this every 500ms; leader drives phase timing
+            import time
+            now_ms = int(time.time() * 1000)
+            self._json_response({
+                'ts':        now_ms,
+                'serverTime': now_ms,
+                # Phase state would be set by the exhibition controller
+                # For now returns a stable state for testing
+                'ready': True,
             })
 
         elif path == '/api/stats':
@@ -276,7 +329,7 @@ class ExhibitionHandler(SimpleHTTPRequestHandler):
             })
 
         else:
-            # Serve static files
+            # Serve static files (HTML, JS, images/)
             super().do_GET()
 
     def _json_response(self, data: dict, status: int = 200):

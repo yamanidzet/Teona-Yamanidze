@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 let state;
-let artworkImages = {};
+let artworkImages = {};      // { artistName: p5.Image }
 let currentArtist;
 let phaseIndex = 0;
 let phaseStartTime = 0;
@@ -23,6 +23,7 @@ let scanLines = [];
 let archiveNodes = [];
 let noiseOffset = 0;
 let screenCfg;
+let imageManifest = [];      // loaded from /api/images
 
 // ── URL params ────────────────────────────────────────────────────────────────
 // ?screen=N   (1-12)  which physical screen this browser is running on
@@ -61,7 +62,40 @@ function setup() {
   initParticles();
   initArchiveNodes();
 
+  // Load image manifest from server (non-blocking)
+  fetch('/api/images')
+    .then(r => r.json())
+    .then(data => {
+      imageManifest = data.manifest || [];
+      preloadArtworkImages();
+    })
+    .catch(() => {});  // server offline — proceed without images
+
+  // Start sync
+  if (typeof initSync === 'function') initSync();
+
   frameRate(60);
+}
+
+// ── Image preload ─────────────────────────────────────────────────────────────
+function preloadArtworkImages() {
+  // Load one representative open-access image per artist
+  const artistFirst = {};
+  for (const rec of imageManifest) {
+    const a = rec.artist;
+    if (!a || artworkImages[a]) continue;
+    const url = rec.direct_url || rec.source_url;
+    if (url && url.startsWith('http') && !artistFirst[a]) {
+      artistFirst[a] = url;
+    }
+  }
+  Object.entries(artistFirst).forEach(([artist, url]) => {
+    loadImage(
+      url,
+      img => { artworkImages[artist] = img; },
+      () => {}  // fail silently — glyph fallback used
+    );
+  });
 }
 
 // ── State builder ─────────────────────────────────────────────────────────────
@@ -230,11 +264,28 @@ function drawPristine(cx, cy, fw, fh, t, id) {
     line(0, y, fw, y);
   }
 
-  // Central artwork mandala
   const r = min(fw, fh) * 0.28 * easeInOut(t);
   push();
   translate(cx, cy);
-  drawArtworkGlyph(r, id, t, false);
+
+  // Use actual artwork image if loaded, otherwise glyph fallback
+  const img = artworkImages[state.artist];
+  if (img) {
+    const imgSize = r * 2.2;
+    // Soft vignette behind image
+    for (let rr = imgSize * 0.7; rr > 0; rr -= 12) {
+      const ch = hexToHSB(id.correct);
+      fill(ch[0], ch[1] * 0.3, 15, map(rr, 0, imgSize * 0.7, 20, 0) * t);
+      noStroke();
+      ellipse(0, 0, rr * 2, rr * 1.8);
+    }
+    tint(255, 255 * t);
+    imageMode(CENTER);
+    image(img, 0, 0, imgSize, imgSize);
+    noTint();
+  } else {
+    drawArtworkGlyph(r, id, t, false);
+  }
   pop();
 
   // Floating identity fragments (correct colours)
@@ -556,7 +607,22 @@ function drawTruth(cx, cy, fw, fh, t, id, now) {
   const r = min(fw, fh) * 0.35 * easeInOut(t);
   push();
   translate(cx, cy);
-  drawArtworkGlyph(r, id, 1, false);
+  const img = artworkImages[state.artist];
+  if (img) {
+    // Image restored — sharper, larger, with correct-identity colour halo
+    const ch = hexToHSB(id.correct);
+    for (let rr = r * 1.3; rr > 0; rr -= 10) {
+      fill(ch[0], 40, 80, map(rr, 0, r * 1.3, 35, 0) * t);
+      noStroke();
+      ellipse(0, 0, rr * 2, rr * 1.8);
+    }
+    tint(255, 255 * t);
+    imageMode(CENTER);
+    image(img, 0, 0, r * 2.2, r * 2.2);
+    noTint();
+  } else {
+    drawArtworkGlyph(r, id, 1, false);
+  }
 
   // Identity flag-colour petals radiating out
   for (let i = 0; i < 24; i++) {

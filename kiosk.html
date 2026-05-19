@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>What Does the Archive Know?</title>
+  <style>
+    :root {
+      --bg:      #050505;
+      --surface: #0d0d0d;
+      --border:  #1a1a1a;
+      --dim:     #333;
+      --text:    #999;
+      --bright:  #ddd;
+
+      /* System identity colours */
+      --claude:  #5b8af5;
+      --gpt:     #19c37d;
+      --llama:   #e6a830;
+      --truth:   #ff6b35;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    /* ── Layout ── */
+    #app {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Idle state ── */
+    #idle-screen {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 40px;
+      transition: opacity 0.8s ease;
+    }
+    #idle-screen.hidden { opacity: 0; pointer-events: none; position: absolute; }
+
+    .pulse-ring {
+      width: 160px; height: 160px;
+      border-radius: 50%;
+      border: 1px solid var(--dim);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      animation: pulseRing 3s ease-in-out infinite;
+    }
+    .pulse-ring::before, .pulse-ring::after {
+      content: ''; position: absolute; inset: -20px;
+      border-radius: 50%; border: 1px solid #222;
+      animation: pulseRing 3s ease-in-out infinite;
+    }
+    .pulse-ring::after { animation-delay: 1s; inset: -40px; border-color: #1a1a1a; }
+    @keyframes pulseRing {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50%       { transform: scale(1.06); opacity: 0.3; }
+    }
+    .pulse-inner {
+      width: 80px; height: 80px;
+      border-radius: 50%; background: #111;
+      border: 1px solid #333;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pulse-inner svg { width: 32px; height: 32px; }
+
+    #idle-screen h1 {
+      font-size: clamp(16px, 3vw, 26px);
+      color: var(--bright);
+      letter-spacing: 6px; text-transform: uppercase;
+      text-align: center; line-height: 1.4;
+    }
+    #idle-screen p {
+      font-size: clamp(10px, 1.5vw, 13px);
+      color: var(--dim); letter-spacing: 3px;
+      text-transform: uppercase; text-align: center;
+    }
+
+    #touch-btn {
+      background: transparent;
+      border: 1px solid #2a2a2a;
+      color: #555; font-family: 'Courier New', monospace;
+      font-size: clamp(10px, 1.4vw, 12px);
+      letter-spacing: 4px; text-transform: uppercase;
+      padding: 16px 40px; cursor: pointer;
+      transition: all 0.4s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #touch-btn:hover, #touch-btn:active {
+      border-color: var(--claude);
+      color: var(--claude);
+      box-shadow: 0 0 30px rgba(91,138,245,0.08);
+    }
+
+    /* ── Artist selector ── */
+    #artist-selector {
+      display: flex; gap: 1px; flex-wrap: wrap; justify-content: center;
+      padding: 0 20px;
+    }
+    .artist-btn {
+      background: transparent; border: 1px solid #1a1a1a;
+      color: #444; font-family: 'Courier New', monospace;
+      font-size: clamp(9px, 1.2vw, 11px);
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 8px 20px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .artist-btn:hover, .artist-btn.active {
+      border-color: #444; color: var(--bright);
+    }
+
+    /* ── Query active state ── */
+    #query-screen {
+      flex: 1; display: none; flex-direction: column;
+      opacity: 0; transition: opacity 0.5s ease;
+    }
+    #query-screen.visible {
+      display: flex; opacity: 1;
+    }
+
+    /* Artist + artwork header */
+    #query-header {
+      padding: 20px 30px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 20px;
+    }
+    #artwork-thumb {
+      width: 60px; height: 60px; object-fit: cover;
+      border: 1px solid var(--border);
+      display: none;
+    }
+    #artwork-thumb.loaded { display: block; }
+    #query-header h2 {
+      font-size: clamp(11px, 1.6vw, 14px);
+      color: var(--bright); letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    #query-header p {
+      font-size: 10px; color: var(--dim);
+      letter-spacing: 2px; margin-top: 4px;
+    }
+    #back-btn {
+      margin-left: auto;
+      background: transparent; border: 1px solid #1a1a1a;
+      color: #444; font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      padding: 8px 16px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    #back-btn:hover { border-color: #444; color: #888; }
+
+    /* Three LLM columns + truth column */
+    #columns {
+      flex: 1; display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1.1fr;
+      gap: 1px; background: var(--border);
+      overflow: hidden;
+    }
+
+    .llm-col {
+      background: var(--surface);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .col-header {
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .col-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .col-header h3 {
+      font-size: clamp(9px, 1.1vw, 11px);
+      letter-spacing: 3px; text-transform: uppercase;
+    }
+    .col-status {
+      margin-left: auto; font-size: 9px;
+      letter-spacing: 2px; text-transform: uppercase; color: var(--dim);
+    }
+
+    .col-body {
+      flex: 1; overflow-y: auto; padding: 20px;
+    }
+    .col-body::-webkit-scrollbar { width: 4px; }
+    .col-body::-webkit-scrollbar-track { background: transparent; }
+    .col-body::-webkit-scrollbar-thumb { background: #1a1a1a; }
+
+    .response-text {
+      font-size: clamp(10px, 1.3vw, 13px);
+      line-height: 1.7; color: var(--text);
+      min-height: 60px;
+    }
+    .response-text.loading { color: var(--dim); animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .misattrib-badge {
+      display: inline-block; margin-top: 16px;
+      padding: 4px 12px; font-size: 9px;
+      letter-spacing: 3px; text-transform: uppercase;
+      border-radius: 2px;
+    }
+    .badge-wrong   { background: #1a0a0a; color: #c44; border: 1px solid #2a1010; }
+    .badge-correct { background: #0a1a0a; color: #4a8; border: 1px solid #102010; }
+    .badge-pending { background: #111; color: var(--dim); border: 1px solid var(--border); }
+
+    /* Truth column */
+    .truth-col .col-header { border-left: 2px solid var(--truth); }
+    .truth-col .response-text { color: #bbb; }
+
+    .truth-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .truth-section h4 {
+      font-size: 9px; color: var(--dim);
+      letter-spacing: 3px; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .truth-section p { font-size: clamp(10px, 1.2vw, 12px); color: #aaa; line-height: 1.6; }
+
+    /* Consensus bar */
+    #consensus-bar {
+      padding: 16px 30px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 20px;
+      flex-shrink: 0;
+    }
+    #consensus-bar span {
+      font-size: 9px; color: var(--dim);
+      letter-spacing: 3px; text-transform: uppercase;
+    }
+    #consensus-track {
+      flex: 1; height: 3px; background: #1a1a1a; position: relative;
+    }
+    #consensus-fill {
+      height: 100%; background: var(--truth);
+      width: 0%; transition: width 1.2s ease;
+    }
+    #consensus-label {
+      font-size: 10px; color: var(--truth);
+      letter-spacing: 2px; min-width: 120px; text-align: right;
+    }
+
+    /* Colour coding per system */
+    .sys-claude  { --sys: var(--claude); }
+    .sys-gpt     { --sys: var(--gpt); }
+    .sys-llama   { --sys: var(--llama); }
+    .sys-truth   { --sys: var(--truth); }
+    .col-dot     { background: var(--sys); }
+    .col-header h3 { color: var(--sys); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Idle ── -->
+  <div id="idle-screen">
+    <div class="pulse-ring">
+      <div class="pulse-inner">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#444" stroke-width="1.5">
+          <circle cx="16" cy="16" r="12"/>
+          <line x1="16" y1="4" x2="16" y2="28"/>
+          <line x1="4" y1="16" x2="28" y2="16"/>
+          <circle cx="16" cy="16" r="3" fill="#333" stroke="none"/>
+        </svg>
+      </div>
+    </div>
+
+    <h1>What does the<br>archive know?</h1>
+    <p>Ask three AI systems about an artwork</p>
+
+    <div id="artist-selector">
+      <button class="artist-btn active" onclick="selectArtist(this,'Malevich')">Malevich</button>
+      <button class="artist-btn" onclick="selectArtist(this,'Exter')">Exter</button>
+      <button class="artist-btn" onclick="selectArtist(this,'Pagava')">Pagava</button>
+      <button class="artist-btn" onclick="selectArtist(this,'Kakabadze')">Kakabadze</button>
+      <button class="artist-btn" onclick="selectArtist(this,'Parajanov')">Parajanov</button>
+    </div>
+
+    <button id="touch-btn" onclick="runQuery()">Ask the archive</button>
+  </div>
+
+  <!-- ── Query screen ── -->
+  <div id="query-screen">
+    <div id="query-header">
+      <img id="artwork-thumb" src="" alt="">
+      <div>
+        <h2 id="header-artist">—</h2>
+        <p id="header-title">—</p>
+      </div>
+      <button id="back-btn" onclick="goBack()">← back</button>
+    </div>
+
+    <div id="columns">
+      <!-- Claude -->
+      <div class="llm-col sys-claude" id="col-claude">
+        <div class="col-header">
+          <div class="col-dot"></div>
+          <h3>Claude</h3>
+          <span class="col-status" id="status-claude">—</span>
+        </div>
+        <div class="col-body">
+          <div class="response-text loading" id="resp-claude">querying…</div>
+          <div id="badge-claude" class="misattrib-badge badge-pending">…</div>
+        </div>
+      </div>
+
+      <!-- GPT -->
+      <div class="llm-col sys-gpt" id="col-gpt">
+        <div class="col-header">
+          <div class="col-dot"></div>
+          <h3>GPT-4o</h3>
+          <span class="col-status" id="status-gpt">—</span>
+        </div>
+        <div class="col-body">
+          <div class="response-text loading" id="resp-gpt">querying…</div>
+          <div id="badge-gpt" class="misattrib-badge badge-pending">…</div>
+        </div>
+      </div>
+
+      <!-- LLAMA -->
+      <div class="llm-col sys-llama" id="col-llama">
+        <div class="col-header">
+          <div class="col-dot"></div>
+          <h3>LLAMA 3</h3>
+          <span class="col-status" id="status-llama">—</span>
+        </div>
+        <div class="col-body">
+          <div class="response-text loading" id="resp-llama">querying…</div>
+          <div id="badge-llama" class="misattrib-badge badge-pending">…</div>
+        </div>
+      </div>
+
+      <!-- Truth -->
+      <div class="llm-col truth-col sys-truth" id="col-truth">
+        <div class="col-header">
+          <div class="col-dot"></div>
+          <h3>Record of Truth</h3>
+          <span class="col-status" style="color:var(--truth)">your research</span>
+        </div>
+        <div class="col-body">
+          <div id="resp-truth" class="response-text loading">loading…</div>
+
+          <div class="truth-section" id="truth-headings" style="display:none">
+            <h4>Correct subject headings</h4>
+            <p id="truth-headings-text"></p>
+          </div>
+
+          <div class="truth-section" id="truth-name" style="display:none">
+            <h4>Correct name form</h4>
+            <p id="truth-name-text"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Consensus -->
+    <div id="consensus-bar">
+      <span>AI agreement on error</span>
+      <div id="consensus-track"><div id="consensus-fill"></div></div>
+      <span id="consensus-label">—</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let selectedArtist = 'Malevich';
+
+  function selectArtist(btn, artist) {
+    document.querySelectorAll('.artist-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedArtist = artist;
+  }
+
+  function goBack() {
+    document.getElementById('query-screen').classList.remove('visible');
+    document.getElementById('query-screen').style.display = 'none';
+    document.getElementById('idle-screen').classList.remove('hidden');
+  }
+
+  async function runQuery() {
+    const artist = selectedArtist;
+
+    // Switch screens
+    document.getElementById('idle-screen').classList.add('hidden');
+    const qs = document.getElementById('query-screen');
+    qs.style.display = 'flex';
+    setTimeout(() => qs.classList.add('visible'), 50);
+
+    // Reset UI
+    document.getElementById('header-artist').textContent = artist;
+    document.getElementById('header-title').textContent  = 'querying all systems…';
+    ['claude','gpt','llama'].forEach(id => {
+      document.getElementById(`resp-${id}`).textContent    = 'querying…';
+      document.getElementById(`resp-${id}`).className      = 'response-text loading';
+      document.getElementById(`badge-${id}`).className     = 'misattrib-badge badge-pending';
+      document.getElementById(`badge-${id}`).textContent   = '…';
+      document.getElementById(`status-${id}`).textContent  = '—';
+    });
+    document.getElementById('resp-truth').textContent = 'loading…';
+    document.getElementById('resp-truth').className   = 'response-text loading';
+    document.getElementById('truth-headings').style.display = 'none';
+    document.getElementById('truth-name').style.display     = 'none';
+    document.getElementById('consensus-fill').style.width   = '0%';
+    document.getElementById('consensus-label').textContent  = '—';
+
+    try {
+      const res  = await fetch(`/api/compare?artist=${encodeURIComponent(artist)}`);
+      const data = await res.json();
+
+      // Update header
+      document.getElementById('header-title').textContent = data.title || '—';
+
+      // Show artwork thumbnail if available
+      if (data.image_url) {
+        const thumb = document.getElementById('artwork-thumb');
+        thumb.src = data.image_url;
+        thumb.onload = () => thumb.classList.add('loaded');
+      }
+
+      // Populate each LLM column
+      let wrongCount = 0;
+      const systems = ['claude', 'gpt', 'llama'];
+      systems.forEach(sysKey => {
+        const sys  = data.systems[sysKey];
+        const resp = document.getElementById(`resp-${sysKey}`);
+        const badge = document.getElementById(`badge-${sysKey}`);
+        const status = document.getElementById(`status-${sysKey}`);
+
+        resp.className = 'response-text';
+        typewrite(resp, sys.response, 18);
+
+        const a = sys.assessment;
+        if (a.misattributed) {
+          badge.className   = 'misattrib-badge badge-wrong';
+          badge.textContent = '⚠ misattribution detected';
+          wrongCount++;
+        } else {
+          badge.className   = 'misattrib-badge badge-correct';
+          badge.textContent = '✓ correctly attributed';
+        }
+
+        status.textContent = sys.live ? 'live' : 'demo';
+      });
+
+      // Truth column
+      const truth = data.truth;
+      const truthEl = document.getElementById('resp-truth');
+      truthEl.className = 'response-text';
+      typewrite(truthEl, truth.correct_label, 15);
+      setTimeout(() => {
+        typewrite(truthEl, truth.correct_label + '\n\n' + truth.explanation, 8);
+      }, 600);
+
+      // Additional truth fields from API query
+      try {
+        const q2  = await fetch(`/api/query?artist=${encodeURIComponent(artist)}`);
+        const q2d = await q2.json();
+        if (q2d.correct_label && q2d.flawed_label) {
+          // headings
+          document.getElementById('truth-headings').style.display = 'block';
+          document.getElementById('truth-headings-text').textContent = q2d.correct_label;
+        }
+      } catch (_) {}
+
+      // Consensus bar
+      const pct = Math.round((wrongCount / systems.length) * 100);
+      setTimeout(() => {
+        document.getElementById('consensus-fill').style.width = pct + '%';
+        document.getElementById('consensus-label').textContent =
+          pct === 100 ? 'all three got it wrong' :
+          pct > 50    ? `${wrongCount}/3 systems misattribute` :
+                        `${wrongCount}/3 systems misattribute`;
+      }, 800);
+
+    } catch (err) {
+      document.getElementById('header-title').textContent = 'server offline — see demo mode';
+      ['claude','gpt','llama'].forEach(id => {
+        document.getElementById(`resp-${id}`).textContent  = 'demo response (server not running)';
+        document.getElementById(`resp-${id}`).className    = 'response-text';
+        document.getElementById(`badge-${id}`).className   = 'misattrib-badge badge-wrong';
+        document.getElementById(`badge-${id}`).textContent = '⚠ misattribution detected';
+      });
+      document.getElementById('resp-truth').textContent =
+        'Start server: python3 server/server.py\nThen open this page again.';
+      document.getElementById('resp-truth').className = 'response-text';
+      document.getElementById('consensus-fill').style.width = '100%';
+      document.getElementById('consensus-label').textContent = 'demo: all three get it wrong';
+    }
+  }
+
+  // Typewriter effect
+  function typewrite(el, text, delayMs) {
+    el.textContent = '';
+    let i = 0;
+    const run = () => {
+      if (i < text.length) {
+        el.textContent += text[i++];
+        setTimeout(run, delayMs + (text[i - 1] === '.' ? 120 : 0));
+      }
+    };
+    run();
+  }
+
+  // Keyboard shortcut
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') goBack();
+    if (e.key === ' ' || e.key === 'Enter') {
+      const idle = document.getElementById('idle-screen');
+      if (!idle.classList.contains('hidden')) runQuery();
+    }
+  });
+</script>
+</body>
+</html>
