@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Misattribution Machine — Technical Documentation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-weight: 300;
+      font-size: 11pt;
+      line-height: 1.75;
+      color: #1a1a1a;
+      background: #fff;
+      padding: 0;
+    }
+
+    /* ── Print layout ── */
+    @page {
+      size: A4;
+      margin: 22mm 20mm 22mm 20mm;
+    }
+    @media print {
+      .no-print { display: none; }
+      section { page-break-inside: avoid; }
+      h2 { page-break-after: avoid; }
+      .page-break { page-break-before: always; }
+    }
+
+    /* ── Screen layout ── */
+    .wrapper {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    /* ── Cover ── */
+    .cover {
+      min-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding-bottom: 40px;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 60px;
+    }
+    .cover-top { }
+    .cover-tag {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8pt;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 60px;
+    }
+    .cover h1 {
+      font-size: 28pt;
+      font-weight: 300;
+      line-height: 1.2;
+      letter-spacing: -0.5px;
+      color: #0a0a0a;
+      margin-bottom: 8px;
+    }
+    .cover h1 em {
+      font-style: italic;
+      font-weight: 300;
+    }
+    .cover .subtitle {
+      font-size: 13pt;
+      font-weight: 300;
+      color: #555;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+    .cover-meta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5pt;
+      color: #888;
+      line-height: 2;
+    }
+    .cover-meta strong {
+      color: #444;
+      font-weight: 500;
+    }
+    .cover-bottom {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8pt;
+      color: #bbb;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ── Sections ── */
+    section {
+      margin-bottom: 52px;
+    }
+
+    h2 {
+      font-size: 9pt;
+      font-weight: 500;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 20px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    h3 {
+      font-size: 12pt;
+      font-weight: 400;
+      color: #0a0a0a;
+      margin-bottom: 10px;
+      margin-top: 28px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      color: #222;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0 28px;
+      font-size: 10pt;
+    }
+    th {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 7.5pt;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #999;
+      font-weight: 400;
+      text-align: left;
+      padding: 6px 12px 6px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    td {
+      padding: 9px 12px 9px 0;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: top;
+      color: #222;
+    }
+    td:first-child {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9pt;
+      color: #555;
+      white-space: nowrap;
+      padding-right: 20px;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Code blocks ── */
+    .code-block {
+      background: #f7f7f7;
+      border-left: 2px solid #ddd;
+      padding: 14px 18px;
+      margin: 16px 0 24px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5pt;
+      line-height: 1.8;
+      color: #333;
+      overflow-x: auto;
+    }
+
+    /* ── Phase cards ── */
+    .phase-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: #e8e8e8;
+      margin: 20px 0 28px;
+    }
+    .phase-card {
+      background: #fff;
+      padding: 16px 18px;
+    }
+    .phase-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18pt;
+      font-weight: 300;
+      color: #ddd;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .phase-name {
+      font-size: 9pt;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    .phase-desc {
+      font-size: 9.5pt;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    /* ── Stat row ── */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: #e8e8e8;
+      margin: 20px 0 28px;
+    }
+    .stat-cell {
+      background: #fff;
+      padding: 18px 16px;
+    }
+    .stat-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 22pt;
+      font-weight: 300;
+      color: #0a0a0a;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .stat-label {
+      font-size: 8.5pt;
+      color: #888;
+      line-height: 1.4;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Artist finding block ── */
+    .finding {
+      border-left: 2px solid #ddd;
+      padding: 12px 18px;
+      margin: 14px 0;
+    }
+    .finding-artist {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5pt;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 5px;
+    }
+    .finding-wrong {
+      font-size: 10pt;
+      color: #888;
+      margin-bottom: 3px;
+    }
+    .finding-wrong span {
+      font-family: 'IBM Plex Mono', monospace;
+      background: #f5f5f5;
+      padding: 1px 5px;
+      font-size: 9pt;
+    }
+    .finding-correct {
+      font-size: 10pt;
+      color: #222;
+    }
+    .finding-note {
+      font-size: 9pt;
+      color: #999;
+      margin-top: 5px;
+      font-style: italic;
+    }
+
+    /* ── File tree ── */
+    .file-tree {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5pt;
+      line-height: 2;
+      color: #444;
+      background: #f9f9f9;
+      padding: 18px 22px;
+      margin: 16px 0;
+    }
+    .file-tree .dir  { color: #222; font-weight: 500; }
+    .file-tree .note { color: #aaa; font-style: italic; }
+
+    /* ── API table ── */
+    .api-row td:first-child {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5pt;
+      color: #444;
+    }
+
+    /* ── Print button ── */
+    .print-btn {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      background: #0a0a0a;
+      color: #fff;
+      border: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10pt;
+      letter-spacing: 2px;
+      padding: 12px 24px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .print-btn:hover { background: #333; }
+  </style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">Save as PDF</button>
+
+<div class="wrapper">
+
+  <!-- ── COVER ── -->
+  <div class="cover">
+    <div class="cover-top">
+      <p class="cover-tag">Technical Framework — Practice-Led Research</p>
+      <h1><em>Misattribution Machine</em></h1>
+      <p class="subtitle">
+        An AI-driven tool for detecting and visualising misattribution<br>
+        in digital archive systems — prototype for museum exhibition
+      </p>
+      <div class="cover-meta">
+        <strong>Researcher</strong> &nbsp;&nbsp; Teona Yamanidze<br>
+        <strong>Focus</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Malevich · Exter · Pagava · Kakabadze · Parajanov<br>
+        <strong>Datasets</strong> &nbsp;&nbsp;&nbsp; 659 records across 2 datasets<br>
+        <strong>Date</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; May 2026<br>
+        <strong>Repository</strong> &nbsp;github.com/yamanidzet/Teona-Yamanidze
+      </div>
+    </div>
+    <div class="cover-bottom">What the archive forgot</div>
+  </div>
+
+
+  <!-- ── 1. OVERVIEW ── -->
+  <section>
+    <h2>01 — Overview</h2>
+    <p>
+      This document describes a prototype AI tool built to detect, demonstrate,
+      and visualise misattribution in digital archive systems. The tool operates
+      across two registers simultaneously: as a <strong>misattribution detection
+      engine</strong> that queries multiple large language models (LLMs) and
+      compares their responses against a researcher-built Record of Truth; and as
+      an <strong>exhibition system</strong> designed for deployment across 12 LED
+      screens in a museum space.
+    </p>
+    <p>
+      The core argument the tool demonstrates is structural: misattribution is not
+      simply a cataloguing error made by individual institutions. It is a
+      condition that propagates. An absence of a nationality qualifier in a
+      Library of Congress authority record flows downstream into WorldCat, into
+      national library aggregators such as Trove, into museum catalogues, and
+      finally into the training data of LLMs — where it is replicated as if it
+      were fact. Correcting the record upstream does not automatically correct
+      what has been absorbed downstream.
+    </p>
+    <p>
+      The exhibition makes this process visible — without text, through distortion
+      and clarity alone.
+    </p>
+  </section>
+
+
+  <!-- ── 2. DATASETS ── -->
+  <section>
+    <h2>02 — Dataset Analysis</h2>
+
+    <div class="stat-row">
+      <div class="stat-cell">
+        <div class="stat-num">659</div>
+        <div class="stat-label">Total records analysed across both datasets</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">~94%</div>
+        <div class="stat-label">Records containing at least one misattribution</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">3</div>
+        <div class="stat-label">Primary misattribution types: wrong label · omission · spelling</div>
+      </div>
+    </div>
+
+    <h3>Dataset 1 — Parajanov Bibliographic Dataset</h3>
+    <p>
+      305 bibliographic records drawn from Trove (NLA), WorldCat/OCLC, ACMI,
+      NGV Library, QAGOMA Cinémathèque, and State Library Victoria. Each record
+      documents how Sergei Parajanov is identified in terms of nationality, name
+      form, and subject headings.
+    </p>
+
+    <table>
+      <tr>
+        <th>Archive</th>
+        <th>System type</th>
+        <th>Misattribution found</th>
+      </tr>
+      <tr>
+        <td>Trove (NLA)</td>
+        <td>National aggregator</td>
+        <td>Labelled "Soviet" — Armenian identity erased</td>
+      </tr>
+      <tr>
+        <td>WorldCat / OCLC</td>
+        <td>Global bibliographic</td>
+        <td>Multiple transliteration variants; "Soviet" throughout</td>
+      </tr>
+      <tr>
+        <td>ACMI</td>
+        <td>Film institution</td>
+        <td>Labelled "Soviet" — no Armenian or Georgian attribution</td>
+      </tr>
+      <tr>
+        <td>NGV Library</td>
+        <td>Museum catalogue</td>
+        <td>One record (COBISS/Slovenian) correctly uses "Armenian" — the only correct record in 305</td>
+      </tr>
+      <tr>
+        <td>QAGOMA</td>
+        <td>Curatorial</td>
+        <td>Labelled "Soviet" — no Armenian attribution</td>
+      </tr>
+    </table>
+
+    <p>
+      The Record of Truth establishes the correct form for all 305 records:
+      <em>Parajanov, Sarkis Hovsepi [Sergeĭ Iosifovich Paradzhanov, 1924–1990]</em>,
+      with nationality <em>Soviet-Armenian (Georgian-born Armenian)</em>.
+    </p>
+
+    <h3>Dataset 2 — Malevich / Exter / Pagava / Kakabadze Artwork Dataset</h3>
+    <p>
+      354 artwork catalogue records drawn from MoMA (New York), NGA (Canberra),
+      NGV (Melbourne), Centre Pompidou (Paris), Yale University Art Gallery,
+      Stedelijk Museum (Amsterdam), and others.
+    </p>
+
+    <div class="finding">
+      <div class="finding-artist">Kazimir Malevich — 272 records</div>
+      <div class="finding-wrong">Labelled: <span>Russian / Soviet</span></div>
+      <div class="finding-correct">Correct: Ukrainian-born (Kyiv); Polish ethnic heritage; b. 1879</div>
+      <div class="finding-note">NGA repeats wrong birth year (1878) across 200+ records. Correct year: 1879. Name inconsistency: "Kazimir" vs "Kasimir" within same institution.</div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-artist">Alexandra Exter — 44 records</div>
+      <div class="finding-wrong">Labelled: <span>Russian</span></div>
+      <div class="finding-correct">Correct: Ukrainian-born (Kyiv); trained Kyiv School of Art; émigré to Paris 1924</div>
+      <div class="finding-note">MoMA frames her work within "A Revolutionary Impulse: The Rise of the Russian Avant-Garde" — misattribution embedded in the exhibition title itself, not just the catalogue field.</div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-artist">Vera Pagava — 19 records</div>
+      <div class="finding-wrong">Labelled: <span>Empire Russe</span></div>
+      <div class="finding-correct">Correct: Georgian-born (Tbilisi); émigré to Paris via Germany 1923; never naturalised French</div>
+      <div class="finding-note">All 19 Centre Pompidou records use "Empire Russe" — technically a birthplace fact but functioning as imperial erasure of Georgian national identity. Pagava's family fled precisely to preserve Georgian identity before Soviet annexation (1921).</div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-artist">David Kakabadze — 19 records</div>
+      <div class="finding-wrong">Labelled: <span>Absorbed into Société Anonyme "Russian avant-garde" canon</span></div>
+      <div class="finding-correct">Correct: Georgian-born (Kutaisi/Tbilisi); studied Paris 1919–1927; returned Soviet Georgia 1927</div>
+      <div class="finding-note">Yale field records correctly note "Georgian" — but structural misattribution via the 1984 Herbert Catalogue Raisonné, which frames the entire Société Anonyme collection within a Russian/Soviet avant-garde narrative. Misattribution invisible at field level.</div>
+    </div>
+
+    <h3>Propagation chain</h3>
+    <p>
+      Both datasets reveal the same downstream structure. An authority record
+      at the Library of Congress that lacks a nationality qualifier does not
+      simply remain neutral — the absence propagates as if it were a positive
+      assertion. The chain moves from authority record to aggregator (WorldCat)
+      to national catalogue (Trove) to institutional catalogue (museum) to LLM
+      training data to public-facing AI systems. At each stage the error
+      becomes more entrenched and harder to correct upstream.
+    </p>
+  </section>
+
+
+  <!-- ── 3. THE TOOL ── -->
+  <div class="page-break"></div>
+  <section>
+    <h2>03 — The Misattribution Detection Tool</h2>
+
+    <p>
+      The tool has two components that operate in parallel: a backend detection
+      engine and a frontend exhibition system. Both are built to work offline
+      or with live cloud LLMs depending on the exhibition context.
+    </p>
+
+    <h3>Multi-LLM misattribution detection</h3>
+    <p>
+      Following the principle that misattribution is "baked into" AI systems
+      through their training data, the tool queries three LLM systems with
+      an identical prompt about each artist and compares the responses against
+      the researcher-built Record of Truth.
+    </p>
+
+    <table class="api-row">
+      <tr>
+        <th>System</th>
+        <th>Type</th>
+        <th>Finding</th>
+      </tr>
+      <tr>
+        <td>Claude (Anthropic)</td>
+        <td>Cloud LLM</td>
+        <td>Describes Malevich as "Russian avant-garde artist"; Parajanov as "Soviet film director"</td>
+      </tr>
+      <tr>
+        <td>GPT-4o (OpenAI)</td>
+        <td>Cloud LLM</td>
+        <td>Same misattribution — "Russian avant-garde", "Soviet filmmaker"</td>
+      </tr>
+      <tr>
+        <td>LLAMA 3 (Ollama)</td>
+        <td>Local / offline LLM</td>
+        <td>Same misattribution — confirms that the error is model-independent</td>
+      </tr>
+    </table>
+
+    <p>
+      All three systems — cloud and local, from different organisations — produce
+      the same misattribution independently. This demonstrates that the error
+      is not the failure of a single system but a structural condition of the
+      training data. The tool displays these three responses alongside the
+      Record of Truth, making the gap visible to visitors in real time.
+    </p>
+
+    <h3>Visitor kiosk — what the visitor sees</h3>
+    <p>
+      A touch screen at the entrance to the exhibition allows visitors to select
+      an artist and tap "Ask the archive". The screen splits into four columns:
+      one for each of the three LLM systems, and a fourth column showing the
+      researcher's Record of Truth. Each LLM response appears character by
+      character. A bar at the bottom fills to show what proportion of AI systems
+      produced the misattribution. No prior knowledge of the artists is required.
+    </p>
+
+    <h3>API endpoints</h3>
+    <table class="api-row">
+      <tr>
+        <th>Endpoint</th>
+        <th>Function</th>
+      </tr>
+      <tr>
+        <td>/api/compare?artist=X</td>
+        <td>Returns all three LLM responses + Record of Truth for artist X</td>
+      </tr>
+      <tr>
+        <td>/api/query?artist=X</td>
+        <td>Single LLM query (Claude) with misattribution assessment</td>
+      </tr>
+      <tr>
+        <td>/api/detect?url=IMG&amp;artist=X</td>
+        <td>Vision query — sends artwork image to LLM, returns assessment</td>
+      </tr>
+      <tr>
+        <td>/api/images?artist=X</td>
+        <td>Returns image manifest showing which artworks are ready for vision queries</td>
+      </tr>
+      <tr>
+        <td>/api/stats</td>
+        <td>Dataset summary statistics</td>
+      </tr>
+    </table>
+  </section>
+
+
+  <!-- ── 4. EXHIBITION ── -->
+  <section>
+    <h2>04 — Exhibition Design: 12-Screen LED Installation</h2>
+
+    <p>
+      The exhibition display runs as a continuous loop across 12 LED screens
+      assembled together. Each screen runs a fullscreen browser window showing
+      its assigned section of the shared canvas. Together they compose one large
+      image. The default grid is 4 columns × 3 rows; this can be reconfigured
+      to 3×4, 6×2, or a linear 12×1 arrangement from the curator control panel.
+    </p>
+
+    <h3>Visual language</h3>
+    <p>
+      The exhibition uses no text and no colour coding tied to national identity.
+      The only visual language is <strong>distortion</strong> (misattribution)
+      and <strong>clarity</strong> (truth). The palette is neutral throughout —
+      black, white, and grey. Fragmentation, pixelation, glitch, and noise show
+      the corrupted state. A whole, sharp, luminous image shows the corrected state.
+    </p>
+
+    <h3>Eight phases — continuous loop</h3>
+
+    <div class="phase-grid">
+      <div class="phase-card">
+        <div class="phase-num">01</div>
+        <div class="phase-name">Pristine</div>
+        <div class="phase-desc">The artwork appears clean and whole — a quiet white glow, the image as it was made, before the archive touched it.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">02</div>
+        <div class="phase-name">Label Applied</div>
+        <div class="phase-desc">A dark rectangular mark descends onto the image — no text, no colour, just weight and opacity. The wrong classification settles.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">03</div>
+        <div class="phase-name">Corruption</div>
+        <div class="phase-desc">The image fractures. Pixels break into blocks, glitch bars tear across, shards drift away. The image as the archive made it.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">04</div>
+        <div class="phase-name">Propagation</div>
+        <div class="phase-desc">Distorted copies of the image appear at the edges of the 12 screens. Archive nodes activate — library, museum, AI — the error flows downstream.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">05</div>
+        <div class="phase-name">Machine Gaze</div>
+        <div class="phase-desc">Three scan bars of different intensity sweep across the corrupted image — cloud LLM, local LLM, library system. All confirm the wrong answer.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">06</div>
+        <div class="phase-name">Intervention</div>
+        <div class="phase-desc">A single white vertical beam cuts through. The distortion dissolves around it. The researcher's correction enters.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">07</div>
+        <div class="phase-name">Truth</div>
+        <div class="phase-desc">The image returns — whole, sharp, luminous. Smaller correct copies orbit the centre, connected by fine lines. The work restored.</div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-num">08</div>
+        <div class="phase-name">Fade</div>
+        <div class="phase-desc">The screens go dark. The cycle resets with the next artist. The loop continues — as the error does, until corrected.</div>
+      </div>
+    </div>
+
+    <h3>Screen synchronisation</h3>
+    <p>
+      When all 12 screens run from a single exhibition computer, phase timing
+      is shared via the browser's localStorage — screen 1 writes the clock,
+      screens 2–12 read it. All 12 advance through the phases in lockstep.
+      For multi-machine deployments, a server sync endpoint provides the
+      shared clock across a local network.
+    </p>
+
+    <h3>Artwork images</h3>
+    <p>
+      The visualization displays actual artwork images when available — loaded
+      from an image directory mapped to dataset record IDs (MAL-001, EXT-001,
+      KAK-001, PAG-001, etc.). 78 records in the dataset have direct image URLs;
+      16 of 19 Kakabadze records at Yale are fully open-access and ready for
+      LLM vision queries without additional licensing. When images are provided
+      via Google Drive, the image pipeline downloads and maps them automatically.
+      When no image is available, the system uses a geometric glyph unique to
+      each artist.
+    </p>
+  </section>
+
+
+  <!-- ── 5. TECHNICAL STRUCTURE ── -->
+  <div class="page-break"></div>
+  <section>
+    <h2>05 — Technical Structure</h2>
+
+    <div class="file-tree">
+      <span class="dir">Teona-Yamanidze/</span><br>
+      ├── <span class="dir">index.html</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← exhibition screen (one per display device)</span><br>
+      ├── exhibition.html &nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← curator controller + dataset analysis dashboard</span><br>
+      ├── kiosk.html &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← visitor touch screen (3 LLMs vs. Record of Truth)</span><br>
+      ├── <span class="dir">js/</span><br>
+      │&nbsp;&nbsp; ├── data.js &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← artist identities, phase definitions, archive chain</span><br>
+      │&nbsp;&nbsp; ├── sketch.js &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← p5.js 8-phase visual narrative</span><br>
+      │&nbsp;&nbsp; └── sync.js &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← 12-screen phase synchronisation</span><br>
+      ├── <span class="dir">server/</span><br>
+      │&nbsp;&nbsp; ├── server.py &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← HTTP server + all API routes</span><br>
+      │&nbsp;&nbsp; ├── multi_llm.py &nbsp;&nbsp;&nbsp;<span class="note">← Claude + GPT-4o + LLAMA comparison engine</span><br>
+      │&nbsp;&nbsp; ├── image_pipeline.py <span class="note">← Drive folder → local image index</span><br>
+      │&nbsp;&nbsp; └── claude_detector.py <span class="note">← standalone CLI misattribution detector</span><br>
+      ├── artworks_data.json &nbsp;<span class="note">← 354 artwork records (processed from Excel)</span><br>
+      └── parajanov_data.json <span class="note">← 305 bibliographic records (processed from Excel)</span>
+    </div>
+
+    <h3>Dependencies</h3>
+    <table>
+      <tr>
+        <th>Library</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td>p5.js 1.9</td>
+        <td>Exhibition visualization — browser-based, no build step required</td>
+      </tr>
+      <tr>
+        <td>anthropic ≥0.40</td>
+        <td>Claude API — LLM queries and vision analysis</td>
+      </tr>
+      <tr>
+        <td>openai ≥1.30</td>
+        <td>GPT-4o API — optional second LLM column</td>
+      </tr>
+      <tr>
+        <td>Ollama (local)</td>
+        <td>LLAMA 3 — offline LLM, no API key or internet required</td>
+      </tr>
+      <tr>
+        <td>openpyxl</td>
+        <td>Reading the Excel datasets</td>
+      </tr>
+      <tr>
+        <td>gdown</td>
+        <td>Google Drive image folder download</td>
+      </tr>
+    </table>
+
+    <h3>To run</h3>
+    <div class="code-block">
+pip install anthropic openpyxl<br>
+export ANTHROPIC_API_KEY=sk-ant-...<br>
+python3 server/server.py<br>
+<br>
+# Open in browser:<br>
+# Exhibition display → http://localhost:8000/index.html?screen=1&cols=4&rows=3<br>
+# Visitor kiosk &nbsp;&nbsp;&nbsp;&nbsp;→ http://localhost:8000/kiosk.html<br>
+# Curator control &nbsp;&nbsp;→ http://localhost:8000/exhibition.html
+    </div>
+
+    <h3>Adding artwork images from Google Drive</h3>
+    <div class="code-block">
+pip install gdown<br>
+python3 server/image_pipeline.py --folder-id YOUR_DRIVE_FOLDER_ID<br>
+<br>
+# Image filenames should contain artwork IDs, e.g.:<br>
+# MAL-001_suprematist_teapot.jpg<br>
+# EXT-001_theatrical_composition.png<br>
+# PAG-001_grande_ville.jpg
+    </div>
+  </section>
+
+
+  <!-- ── 6. CONCEPTUAL FRAMEWORK ── -->
+  <section>
+    <h2>06 — Conceptual Framework</h2>
+
+    <p>
+      The tool is designed to test how provenance can work as infrastructure
+      within a museum exhibition context. It demonstrates three interlinked
+      conditions identified through the dataset research:
+    </p>
+
+    <p>
+      <strong>1. Metadata errors are replicated and entrenched.</strong>
+      When the Library of Congress creates or maintains an authority record
+      without a nationality qualifier, that absence propagates through every
+      system that inherits from it. WorldCat, Trove, institutional catalogues —
+      all downstream systems receive and replicate the gap as if it were a
+      positive fact.
+    </p>
+
+    <p>
+      <strong>2. These entrenchments are replicated in LLMs.</strong>
+      Large language models trained on web-scale data absorb the cataloguing
+      errors of the institutions that produced that data. The tool demonstrates
+      this empirically: Claude, GPT-4o, and LLAMA all independently describe
+      Malevich as a "Russian avant-garde artist" and Parajanov as a "Soviet film
+      director" — because those are the labels that dominate the digital record.
+    </p>
+
+    <p>
+      <strong>3. Correction is not obvious, and the ground truth struggles
+      to go back upstream.</strong>
+      The researcher has built a parallel Record of Truth — three additional
+      columns for each of the 659 records showing what the nationality label,
+      name form, and subject headings should have been. The exhibition makes
+      visible both the error and the correction, and the difficulty of the
+      distance between them.
+    </p>
+
+    <p>
+      The exhibition is therefore not only an artwork. It is a demonstration
+      of infrastructure — of how digital systems shape what can be discovered,
+      legitimised, and remembered within cultural memory.
+    </p>
+  </section>
+
+  <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee;">
+    <p style="font-family: 'IBM Plex Mono', monospace; font-size: 8pt; color: #bbb; letter-spacing: 2px; text-transform: uppercase;">
+      Teona Yamanidze — Practice-Led Research — May 2026
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
