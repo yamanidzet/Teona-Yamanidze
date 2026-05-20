@@ -27,8 +27,25 @@ with open(BASE_DIR / 'artworks_data.json',  encoding='utf-8') as f:
 with open(BASE_DIR / 'parajanov_data.json', encoding='utf-8') as f:
     parajanov_data = json.load(f)
 
-# Artwork ID patterns: MAL-001, EXT-001, KAK-001, PAG-001
-ID_PATTERN = re.compile(r'(MAL|EXT|KAK|PAG|PAR)-\d{3}', re.IGNORECASE)
+# Artwork ID patterns — structured IDs and Drive filename prefixes
+# MAL-001 / EXT-001 / KAK-001 / PAG-001 / PAR-001 (dataset IDs)
+# MaL###  — Malevich individual Drive files
+# std###  — Stedelijk Museum Malevich files
+# EXT###, KAK###, PAG###, PAR### — shorthand variants
+ID_PATTERN = re.compile(
+    r'(MAL|EXT|KAK|PAG|PAR)-\d{3}|'   # structured: MAL-001
+    r'(MaL|std|EXT|KAK|PAG|PAR)\d+',   # prefix + number: MaL01, std03
+    re.IGNORECASE
+)
+
+PREFIX_TO_ARTIST = {
+    'mal': 'Malevich',
+    'std': 'Malevich',
+    'ext': 'Exter',
+    'kak': 'Kakabadze',
+    'pag': 'Pagava',
+    'par': 'Parajanov',
+}
 
 
 def load_index() -> dict:
@@ -62,16 +79,29 @@ def scan_local_dir(directory: str) -> dict:
     for img_path in sorted(img_dir.rglob('*')):
         if img_path.suffix.lower() not in ('.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif'):
             continue
-        match = ID_PATTERN.search(img_path.stem)
-        if not match:
-            # Try matching against known titles as fallback
-            match = ID_PATTERN.search(img_path.name)
+        match = ID_PATTERN.search(img_path.stem) or ID_PATTERN.search(img_path.name)
         if match:
-            art_id = match.group().upper()
+            raw = match.group()
+            # Normalise to uppercase storage key, e.g. MaL01 → MAL-01, std03 → STD-03
+            prefix = re.match(r'[A-Za-z]+', raw).group().upper()
+            number = re.search(r'\d+', raw)
+            if '-' in raw:
+                art_id = raw.upper()          # already structured: MAL-001
+            elif number:
+                art_id = f"{prefix}-{number.group().zfill(3)}"
+            else:
+                art_id = prefix
+
+            artist = PREFIX_TO_ARTIST.get(prefix.lower(), 'Unknown')
             dest   = IMAGES_DIR / f"{art_id}{img_path.suffix.lower()}"
             shutil.copy2(img_path, dest)
-            index[art_id] = {'local_path': str(dest), 'source': 'local', 'original': str(img_path)}
-            print(f"  Linked: {art_id} ← {img_path.name}")
+            index[art_id] = {
+                'local_path': str(dest),
+                'source':     'local',
+                'original':   str(img_path),
+                '_artist':    artist,
+            }
+            print(f"  Linked: {art_id} ({artist}) ← {img_path.name}")
             found += 1
 
     save_index(index)
@@ -136,6 +166,9 @@ def build_image_manifest() -> list:
         if art_id in index:
             entry['local_path']    = index[art_id].get('local_path')
             entry['ready_for_llm'] = True
+            # Use artist from index if available (set by prefix mapping)
+            if index[art_id].get('_artist'):
+                entry['artist'] = index[art_id]['_artist']
 
         # Mark open-access records as ready via source URL
         rights = rec.get('Image: Rights / Licence', '').lower()
@@ -147,6 +180,22 @@ def build_image_manifest() -> list:
                 entry['ready_for_llm'] = True
 
         result.append(entry)
+
+    # Also include locally-indexed images not matched by dataset ID (e.g. MaL/std Drive files)
+    seen_ids = {r['id'] for r in result}
+    for art_id, info in index.items():
+        if art_id not in seen_ids:
+            lp = info.get('local_path', '')
+            result.append({
+                'id':          art_id,
+                'artist':      info.get('_artist', ''),
+                'title':       art_id,
+                'institution': 'Local',
+                'source_url':  '',
+                'rights':      '',
+                'local_path':  lp,
+                'ready_for_llm': bool(lp and Path(lp).exists()),
+            })
 
     return result
 
