@@ -1,0 +1,30 @@
+{
+  "MAL-073": {
+    "local_path": "images/MAL-073.png",
+    "source": "drive",
+    "drive_id": "1bJqb0YujRyDcexcF4O5m4cIMieJCiRcG",
+    "original": "MAL-073.png",
+    "_artist": "Malevich"
+  },
+  "EXT-015": {
+    "local_path": "images/EXT-015.png",
+    "source": "drive",
+    "drive_id": "1g6K7p0BoWc7JQywc3MEBLT-QZXL8oGHc",
+    "original": "EXT-015.png",
+    "_artist": "Exter"
+  },
+  "KAK-001": {
+    "local_path": "images/KAK-001.png",
+    "source": "drive",
+    "drive_id": "1KflqewBWbm5VInetp77rULzNfE5RAluG",
+    "original": "KAK-001.png",
+    "_artist": "Kakabadze"
+  },
+  "PAG-018": {
+    "local_path": "images/PAG-018.png",
+    "source": "drive",
+    "drive_id": "1Biz1UGF2lbPK-uJwuJLGlqJ4WU-qnoqo",
+    "original": "PAG-018.png",
+    "_artist": "Pagava"
+  }
+}

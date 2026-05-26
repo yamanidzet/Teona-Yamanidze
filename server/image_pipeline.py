@@ -164,9 +164,10 @@ def build_image_manifest() -> list:
         }
 
         if art_id in index:
-            entry['local_path']    = index[art_id].get('local_path')
-            entry['ready_for_llm'] = True
-            # Use artist from index if available (set by prefix mapping)
+            raw_lp = index[art_id].get('local_path', '')
+            lp_abs = Path(raw_lp) if Path(raw_lp).is_absolute() else BASE_DIR / raw_lp
+            entry['local_path']    = str(lp_abs)
+            entry['ready_for_llm'] = lp_abs.exists()
             if index[art_id].get('_artist'):
                 entry['artist'] = index[art_id]['_artist']
 
@@ -186,15 +187,17 @@ def build_image_manifest() -> list:
     for art_id, info in index.items():
         if art_id not in seen_ids:
             lp = info.get('local_path', '')
+            # Support both relative (new) and absolute (legacy) paths
+            lp_abs = Path(lp) if Path(lp).is_absolute() else BASE_DIR / lp
             result.append({
                 'id':          art_id,
                 'artist':      info.get('_artist', ''),
                 'title':       art_id,
-                'institution': 'Local',
+                'institution': 'Drive / Local',
                 'source_url':  '',
                 'rights':      '',
-                'local_path':  lp,
-                'ready_for_llm': bool(lp and Path(lp).exists()),
+                'local_path':  str(lp_abs),
+                'ready_for_llm': bool(lp and lp_abs.exists()),
             })
 
     return result

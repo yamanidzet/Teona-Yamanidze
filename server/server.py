@@ -290,17 +290,57 @@ class ExhibitionHandler(SimpleHTTPRequestHandler):
             })
 
         elif path == '/api/images':
-            # Image manifest — shows which artworks have images ready
             artist = params.get('artist', [None])[0]
             manifest = build_image_manifest()
+            # Annotate each record with a server_url usable by the browser
+            for m in manifest:
+                lp = m.get('local_path', '')
+                if not lp:
+                    continue
+                lp_path = Path(lp)
+                if not lp_path.is_absolute():
+                    lp_path = BASE_DIR / lp_path
+                if lp_path.exists():
+                    try:
+                        rel = lp_path.relative_to(BASE_DIR)
+                        m['server_url'] = '/' + str(rel).replace('\\', '/')
+                    except ValueError:
+                        pass
             if artist:
                 manifest = [m for m in manifest if m.get('artist','').lower() == artist.lower()]
             ready = sum(1 for m in manifest if m['ready_for_llm'])
+            # Surface records with local images first so sketch.js finds them
+            manifest.sort(key=lambda m: 0 if m.get('server_url') else 1)
             self._json_response({
                 'total': len(manifest),
                 'ready': ready,
-                'manifest': manifest[:60],
+                'manifest': manifest[:80],
             })
+
+        elif path == '/api/image-proxy':
+            # Proxy a local image file — avoids CORS issues for loadPixels()
+            img_id = params.get('id', [None])[0]
+            if not img_id:
+                self._json_response({'error': 'id required'}, 400)
+                return
+            # Try image_index.json
+            idx_path = BASE_DIR / 'image_index.json'
+            if idx_path.exists():
+                with open(idx_path, encoding='utf-8') as f:
+                    idx = json.load(f)
+                entry = idx.get(img_id)
+                if entry:
+                    lp = BASE_DIR / entry.get('local_path', '')
+                    if lp.exists():
+                        data = lp.read_bytes()
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'image/png')
+                        self.send_header('Content-Length', len(data))
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        self.wfile.write(data)
+                        return
+            self._json_response({'error': 'image not found'}, 404)
 
         elif path == '/api/sync':
             # Phase clock for cross-machine screen synchronisation
