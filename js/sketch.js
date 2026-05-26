@@ -53,6 +53,7 @@ function setup() {
 
   spawnParticles(screenCfg.fullW, screenCfg.fullH, false);
   initArchiveNodes();
+  _emitPhaseChange();
 
   fetch('/api/images')
     .then(r => r.json())
@@ -68,9 +69,10 @@ function preloadArtworkImages() {
   const artistFirst = {};
   for (const rec of imageManifest) {
     const a = rec.artist;
-    if (!a || artworkImages[a]) continue;
-    const url = rec.direct_url || rec.source_url;
-    if (url && url.startsWith('http') && !artistFirst[a]) artistFirst[a] = url;
+    if (!a || artistFirst[a]) continue;
+    // Prefer local server URL (same-origin → loadPixels works), then HTTP
+    const url = rec.server_url || rec.direct_url || rec.source_url;
+    if (url) artistFirst[a] = url;
   }
   Object.entries(artistFirst).forEach(([artist, url]) => {
     loadImage(url, img => {
@@ -213,6 +215,19 @@ function advancePhase() {
       n.activatedAt = state.phaseStart + i * 700;
     });
   }
+  _emitPhaseChange();
+}
+
+function _emitPhaseChange() {
+  window.dispatchEvent(new CustomEvent('phaseChange', {
+    detail: {
+      phaseId:    state.phase.id,
+      phaseLabel: state.phase.label,
+      phaseIndex: phaseIndex,
+      artist:     state.artist,
+      identity:   state.identity,
+    }
+  }));
 }
 
 // ── Main draw ─────────────────────────────────────────────────────────────────

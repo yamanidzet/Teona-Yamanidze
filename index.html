@@ -14,7 +14,7 @@
     }
     canvas { display: block; }
 
-    /* Loading screen */
+    /* ── Loading screen ───────────────────────────────────────────────────── */
     #loader {
       position: fixed; inset: 0;
       background: #000;
@@ -30,42 +30,136 @@
       letter-spacing: 3px; text-transform: uppercase;
     }
 
-    /* Kiosk query panel (visitor interaction) */
-    #kiosk-panel {
-      display: none;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: 200px;
-      background: rgba(0,0,0,0.92);
-      border-top: 1px solid #222;
-      padding: 20px 40px;
+    /* ── Phase overlay (bottom-right) ────────────────────────────────────── */
+    #phase-overlay {
+      position: fixed;
+      bottom: 36px; right: 36px;
+      width: 320px;
       font-family: monospace;
+      pointer-events: none;
+      z-index: 40;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    #phase-overlay.visible { opacity: 1; }
+
+    #phase-overlay.flash .step-title {
+      color: #fff;
+    }
+    .step-num {
+      font-size: 9px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #3a6a8a;
+      margin-bottom: 6px;
+    }
+    .step-title {
+      font-size: 18px;
+      color: #8cc;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      transition: color 0.3s ease;
+    }
+    .step-divider {
+      width: 40px;
+      height: 1px;
+      background: #2a4a5a;
+      margin-bottom: 10px;
+    }
+    .step-desc {
+      font-size: 11px;
+      color: #557;
+      line-height: 1.65;
+    }
+
+    /* ── Artist overlay (bottom-left) ────────────────────────────────────── */
+    #artist-overlay {
+      position: fixed;
+      bottom: 36px; left: 36px;
+      width: 300px;
+      font-family: monospace;
+      pointer-events: none;
+      z-index: 40;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    #artist-overlay.visible { opacity: 1; }
+
+    .artist-name {
+      font-size: 13px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: #aaa;
+      margin-bottom: 10px;
+    }
+    .artist-flawed {
+      font-size: 10px;
+      color: #844;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .artist-correct {
+      font-size: 10px;
+      color: #4a8a6a;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .artist-detail {
+      font-size: 10px;
+      color: #445;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .artist-records {
+      font-size: 9px;
+      color: #334;
+      letter-spacing: 1px;
+    }
+
+    /* ── Title bar (top, fades out after a few seconds) ──────────────────── */
+    #title-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 18px 36px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      font-family: monospace;
+      z-index: 40;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%);
+      transition: opacity 2s ease;
+    }
+    #title-bar.hidden { opacity: 0; }
+    .title-main {
+      font-size: 11px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
       color: #666;
-      z-index: 50;
     }
-    #kiosk-panel.visible { display: flex; flex-direction: column; gap: 12px; }
-    #kiosk-panel h3 { color: #888; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; }
-    #kiosk-panel .response-area {
-      flex: 1; overflow-y: auto;
-      font-size: 13px; line-height: 1.6; color: #aaa;
+    .title-sub {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: #333;
     }
-    #kiosk-panel .truth-row {
-      display: flex; gap: 20px; font-size: 11px;
+
+    /* ── Stats bar (top-right) ───────────────────────────────────────────── */
+    #stats-bar {
+      position: fixed;
+      top: 18px; right: 36px;
+      font-family: monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: #333;
+      text-align: right;
+      z-index: 40;
+      pointer-events: none;
+      line-height: 1.8;
+      opacity: 0;
+      transition: opacity 0.8s ease;
     }
-    #kiosk-panel .llm-col { flex: 1; }
-    #kiosk-panel .llm-col h4 { color: #5af; margin-bottom: 6px; letter-spacing: 2px; font-size: 10px; }
-    #kiosk-panel .truth-col { flex: 1; }
-    #kiosk-panel .truth-col h4 { color: #fa5; margin-bottom: 6px; letter-spacing: 2px; font-size: 10px; }
-    #query-btn {
-      position: fixed; bottom: 220px; left: 50%; transform: translateX(-50%);
-      background: transparent; border: 1px solid #333;
-      color: #555; font-family: monospace; font-size: 11px;
-      letter-spacing: 3px; text-transform: uppercase;
-      padding: 10px 24px; cursor: pointer;
-      transition: all 0.3s ease;
-      display: none;
-    }
-    #query-btn:hover { border-color: #5af; color: #5af; }
-    #query-btn.visible { display: block; }
+    #stats-bar.visible { opacity: 1; }
   </style>
 </head>
 <body>
@@ -86,82 +180,76 @@
   <p>Initialising archive</p>
 </div>
 
-<!-- Visitor kiosk query button (shown only in kiosk mode) -->
-<button id="query-btn" onclick="triggerLLMQuery()">Ask the Archive</button>
-
-<!-- LLM response panel -->
-<div id="kiosk-panel">
-  <h3>What the machine knows</h3>
-  <div class="truth-row">
-    <div class="llm-col">
-      <h4>AI response (unmodified)</h4>
-      <div class="response-area" id="llm-response">Querying…</div>
-    </div>
-    <div class="truth-col">
-      <h4>Record of truth</h4>
-      <div class="response-area" id="truth-response"></div>
-    </div>
-  </div>
+<!-- Title bar -->
+<div id="title-bar">
+  <span class="title-main">Misattribution Machine</span>
+  <span class="title-sub">— how an archival error propagates into AI</span>
 </div>
 
-<!-- p5.js + sketch -->
+<!-- Dataset stats (top-right) -->
+<div id="stats-bar">
+  <div id="stat-records">659 records</div>
+  <div id="stat-artists">5 artists · 4 AI systems</div>
+  <div id="stat-error">~94% contain misattribution</div>
+</div>
+
+<!-- Step-by-step phase panel (bottom-right) -->
+<div id="phase-overlay">
+  <div class="step-num">01 / 08</div>
+  <div class="step-title">Pristine</div>
+  <div class="step-divider"></div>
+  <div class="step-desc">Particles coalescing from void into artwork form.</div>
+</div>
+
+<!-- Artist truth panel (bottom-left) -->
+<div id="artist-overlay">
+  <div class="artist-name">Malevich</div>
+  <div class="artist-flawed">✗ Russian / Soviet</div>
+  <div class="artist-correct">✓ Ukrainian-born (Kyiv, 1879); Polish ethnic heritage</div>
+  <div class="artist-detail"></div>
+  <div class="artist-records"></div>
+</div>
+
+<!-- p5.js + scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 <script src="js/data.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/sketch.js"></script>
+<script src="js/overlay.js"></script>
 
 <script>
-  // Hide loader after p5 canvas is ready
   window.addEventListener('load', () => {
+    // Hide loader after particle system is ready
     setTimeout(() => {
       document.getElementById('loader').classList.add('hidden');
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('kiosk') === '1') {
-        document.getElementById('query-btn').classList.add('visible');
-      }
+      document.getElementById('phase-overlay').classList.add('visible');
+      document.getElementById('artist-overlay').classList.add('visible');
+      document.getElementById('stats-bar').classList.add('visible');
     }, 1800);
+
+    // Fade out title bar after 6 seconds
+    setTimeout(() => {
+      document.getElementById('title-bar').classList.add('hidden');
+    }, 6000);
+
+    // Load dataset stats
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('stat-records').textContent =
+          (d.total_records || 659) + ' records examined';
+      })
+      .catch(() => {});
   });
 
-  // Visitor kiosk: send artwork to backend, show LLM vs. truth
-  async function triggerLLMQuery() {
-    const panel = document.getElementById('kiosk-panel');
-    panel.classList.add('visible');
-    document.getElementById('llm-response').textContent = 'Querying AI…';
-    document.getElementById('truth-response').textContent = '';
-
-    try {
-      const artist = new URLSearchParams(window.location.search).get('artist') || 'Malevich';
-      const res = await fetch(`/api/query?artist=${encodeURIComponent(artist)}`);
-      const data = await res.json();
-
-      // Typewriter reveal of LLM response
-      typewrite('llm-response', data.llm_response || '(no response)', 20);
-      typewrite('truth-response', data.truth || '', 15);
-    } catch (e) {
-      document.getElementById('llm-response').textContent = 'Server offline — demo mode active.';
-      document.getElementById('truth-response').textContent = 'Records available in the dataset.';
-    }
-  }
-
-  function typewrite(id, text, delay) {
-    const el = document.getElementById(id);
-    el.textContent = '';
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i < text.length) {
-        el.textContent += text[i++];
-      } else {
-        clearInterval(timer);
-      }
-    }, delay);
-  }
-
-  // Keyboard shortcuts (curator controls)
+  // Keyboard: R to restart, Escape to toggle overlays
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      document.getElementById('kiosk-panel').classList.remove('visible');
+      ['phase-overlay','artist-overlay','stats-bar'].forEach(id => {
+        document.getElementById(id)?.classList.toggle('visible');
+      });
     }
-    if (e.key === 'q' || e.key === 'Q') triggerLLMQuery();
+    if (e.key === 'r' || e.key === 'R') window.location.reload();
   });
 </script>
 </body>
